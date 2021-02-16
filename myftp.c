@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-# header_size = 4+6+1
+#define header_size = 4+6+1
 
 Message* list_request(){
     Message *listRequestMessage = (Message *) malloc(sizeof(Message));
