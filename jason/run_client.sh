@@ -1,1 +1,1 @@
-./client 10.0.2.15 12345 put Makefile
+./client 10.0.2.15 12345 get a.c

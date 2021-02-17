@@ -28,6 +28,7 @@ Message* list_request(){
     strcpy(listRequestMessage->protocol, "myftp");
     listRequestMessage->type = 0xA1;
     listRequestMessage->length = HEADERLEN;
+	//listRequestMessage->length = htonl(listRequestMessage->length);
     return listRequestMessage;
 }
 
@@ -86,7 +87,8 @@ int main(int argc, char **argv) {
 		Message *listRequestMessage = list_request();
 		sendMessage(listRequestMessage,sd);
 		Message* reply = receiveMessage(sd);
-		if(strcmp(reply->protocol, "fubar") == 0 && reply->type == 0xA2){
+		printf("get reply");
+		if(strcmp(reply->protocol, "myftp") == 0 && reply->type == 0xA2){
 			char replyMessage[reply->length - 11];
 			int length = recv(sd, replyMessage, reply->length - 11, 0);
 			if(length < 0)
@@ -102,7 +104,58 @@ int main(int argc, char **argv) {
 	}else if(strcmp(argv[3], "get") == 0){
 		assert(argc == 5);
 		Message *getRequestMessage = get_request(strlen(argv[4]));
+		
+
+		// Send get request
 		sendMessage(getRequestMessage,sd);
+		// send(sd, (void *) getRequestMessage, sizeof(*getRequestMessage), 0);
+
+		// free(getRequestMessage);
+		// Send filename
+		send(sd, argv[4], strlen(argv[4]), 0);
+		Message* replyMessage = receiveMessage(sd);
+		// recv(sd, (void *) &replyMessage, sizeof(replyMessage), 0);
+
+		// File does not exist replied from server
+		if(strcmp(replyMessage->protocol, "myftp") == 0 && replyMessage->type == (int)0xB3){
+			printf("File does not exist!\n");
+			exit(0);
+		}
+		// File exists replied from server and going to receive message structure and file data
+		else if(strcmp(replyMessage->protocol, "myftp") == 0 && replyMessage->type == (int)0xB2){
+			// Receive file data with size
+			// Message fileData;
+			// Message* replyMessage = receiveMessage(sd);
+
+			// recv(sd, (void *) &fileData, sizeof(fileData), 0);
+			Message* fileData = receiveMessage(sd);
+
+			// printf("FILE PROTOCOL: %s", fileData->protocol);
+			// printf("FILE TYPE: %d", fileData->type);
+			if(!(strcmp(fileData->protocol, "myftp") == 0 && fileData->type == (int)0xFF)){
+				printf("File data structure error!\n");
+				exit(0);
+			}
+			int fileDataLength = fileData->length - 11;
+			printf("Waiting file... : %d\n", fileDataLength);
+
+			// wordSize depends on connection, it can be changed
+			int wordSize = 1024;
+			FILE *fp = fopen(argv[4], "w+b");
+			while(fileDataLength > 0){
+				Message* fileSizeData = receiveMessage(sd);
+				char words[wordSize];
+				if(fileSizeData->length - 11 > wordSize)
+					fileSizeData->length = ntohl(fileSizeData->length);
+				printf("%d\n", fileSizeData->length - 11);
+				int length = recv(sd, words, fileSizeData->length - 11, 0);
+				fileDataLength -= fileSizeData->length - 11;
+				fwrite(words, sizeof(char), fileSizeData->length - 11, fp);
+			}
+			printf("File has been received and saved!!!\n");
+			fclose(fp);
+		}
+		
 	}else if(strcmp(argv[3], "put") == 0){
 		assert(argc == 5);
 		FILE *fp = fopen(argv[4], "rb");
