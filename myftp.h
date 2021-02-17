@@ -7,20 +7,20 @@ typedef struct message_s {
     unsigned int length;
 } __attribute__ ((packed)) Message;
 
-ftpMessage* list_request();
+Message* list_request();
 
-ftpMessage* list_reply(int);
+Message* list_reply(int);
 
-ftpMessage* get_request(int);
+Message* get_request(int);
 
-ftpMessage* get_reply(bool);
+Message* get_reply(bool);
 
-ftpMessage* put_request(int);
+Message* put_request(int);
 
-ftpMessage* put_reply();
+Message* put_reply();
 
-ftpMessage* file_data(int);
+Message* file_data(int);
 
-void sendOutFTPMessage(ftpMessage *, int);
+void sendOutFTPMessage(Message *, int);
 
-ftpMessage* receiveFTPMessage(int);
+Message* receiveFTPMessage(int);
