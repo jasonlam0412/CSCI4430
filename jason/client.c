@@ -83,8 +83,7 @@ int main(int argc, char **argv) {
 	////
 	char buff[100];
 	if(strcmp(argv[3], "list") == 0){
-		Message *listRequestMessage = list_request();
-		sendMessage(listRequestMessage,sd);
+		sendMessage(list_request(),sd);
 		Message* reply = receiveMessage(sd);
 		if(strcmp(reply->protocol, "myftp") == 0 && reply->type == 0xA2){
 			char replyMessage[reply->length - 11];
@@ -92,6 +91,7 @@ int main(int argc, char **argv) {
 			if(length < 0)
 				printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
 			else{
+				replyMessage 
 				replyMessage[length] = '\0';
 				printf("%s", replyMessage);
 			}
