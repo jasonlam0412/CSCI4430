@@ -15,9 +15,8 @@
 #include <arpa/inet.h>
 
 #include "myftp.h"
+#define HEADERLEN 11
 
-#define IPADDR "127.0.0.1"
-#define PORT 12345
 
 Message* list_request();
 Message* get_request(int);
@@ -28,7 +27,7 @@ Message* list_request(){
     Message *listRequestMessage = (Message *) malloc(sizeof(Message));
     strcpy(listRequestMessage->protocol, "myftp");
     listRequestMessage->type = 0xA1;
-    listRequestMessage->length = 11;
+    listRequestMessage->length = HEADERLEN;
     return listRequestMessage;
 }
 
@@ -36,7 +35,7 @@ Message* get_request(int payloadLength){
     Message *getRequestMessage = (Message *) malloc(sizeof(Message));
     strcpy(getRequestMessage->protocol, "myftp");
     getRequestMessage->type = 0xB1;
-    getRequestMessage->length = 11 + payloadLength;
+    getRequestMessage->length = HEADERLEN + payloadLength;
     return getRequestMessage;
 }
 
@@ -44,7 +43,7 @@ Message* put_request(int payloadLength){
     Message *putRequestMessage = (Message *) malloc(sizeof(Message));
     strcpy(putRequestMessage->protocol, "myftp");
     putRequestMessage->type = 0xC1;
-    putRequestMessage->length = 11 + payloadLength;
+    putRequestMessage->length = HEADERLEN + payloadLength;
     return putRequestMessage;
 }
 
@@ -84,8 +83,8 @@ int main(int argc, char **argv) {
 	////
 	char buff[100];
 	if(strcmp(argv[3], "list") == 0){
-		//list dir
-		sendMessage(list_request(),sd);
+		Message *listRequestMessage = list_request();
+		sendMessage(listRequestMessage,sd);
 		Message* reply = receiveMessage(sd);
 		if(strcmp(reply->protocol, "fubar") == 0 && reply->type == 0xA2){
 			char replyMessage[reply->length - 11];
@@ -100,15 +99,24 @@ int main(int argc, char **argv) {
 			//error in protocol and type
 			printf("Server reply error. Wrong packet received.");
 		}
-
 	}else if(strcmp(argv[3], "get") == 0){
 		assert(argc == 5);
 		Message *getRequestMessage = get_request(strlen(argv[4]));
-		
-
-		// Send get request
 		sendMessage(getRequestMessage,sd);
 	}else if(strcmp(argv[3], "put") == 0){
+		assert(argc == 5);
+		FILE *fp = fopen(argv[4], "rb");
+		if (fp == 0){
+			printf("File cannot open\n");
+			return 0;
+		}else{
+			printf("File opened\n");
+		}
+		fseek(fp, 0, SEEK_END); 	
+		int fileSize = ftell(fp); 	
+		fseek(fp, 0, SEEK_SET); 	
+		Message *putRequestMessage = put_request(strlen(argv[4]));
+		sendMessage(putRequestMessage, sd);
 	}
 	
 	close(sd);

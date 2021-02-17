@@ -9,12 +9,13 @@
 # include <netinet/in.h>
 # include <arpa/inet.h>
 #include "myftp.h"
+#define HEADERLEN 11
 
 Message* file_data(int fileSize){
     Message *fileDataMessage = (Message *) malloc(sizeof(Message));
     strcpy(fileDataMessage->protocol, "myftp");
     fileDataMessage->type = 0xFF;
-    fileDataMessage->length = 11 + fileSize;
+    fileDataMessage->length = HEADERLEN + fileSize;
     return fileDataMessage;
 }
 

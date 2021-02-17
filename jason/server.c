@@ -17,8 +17,8 @@
 #include <dirent.h>
 
 #include "myftp.h"
+#define HEADERLEN 11
 
-#define PORT 12345
 Message* list_reply(int);
 Message* get_reply(bool);
 Message* put_reply();
@@ -29,7 +29,7 @@ Message* list_reply(int payloadLength){
     Message *listReplyMessage = (Message *) malloc(sizeof(Message));
     strcpy(listReplyMessage->protocol, "myftp");
     listReplyMessage->type = 0xA2;
-    listReplyMessage->length = 11 + payloadLength;
+    listReplyMessage->length = HEADERLEN + payloadLength;
     return listReplyMessage;
 }
 
@@ -40,7 +40,7 @@ Message* get_reply(bool existance){
     else
         getReplyMessage->type = 0xB3;
     strcpy(getReplyMessage->protocol, "myftp");
-    getReplyMessage->length = 11;
+    getReplyMessage->length = HEADERLEN;
     return getReplyMessage;
 }
 
@@ -48,7 +48,7 @@ Message* put_reply(){
     Message *putReplyMessage = (Message *) malloc(sizeof(Message));
     strcpy(putReplyMessage->protocol, "myftp");
     putReplyMessage->type = 0xC2;
-    putReplyMessage->length = 11;
+    putReplyMessage->length = HEADERLEN;
     return putReplyMessage;
 }
 
@@ -62,16 +62,25 @@ Message* put_reply(){
 void *connectionFunction(void *client_sd){
 	char buffer[100];
 	int length;
-	int clientSocket = *((int *) client_sd);
+	int client_sd = *((int *) client_sd);
 	// printf("RECEIVING SOMETHING\n");
 	Message* receivedMessage;
 	// Client is now connected to server
-	// recv(clientSocket, (void *) receivedMessage, sizeof(receivedMessage), 0);
-	receivedMessage = receiveMessage(clientSocket);
-	printf("Received from sender: %s 0x%02X %d\n", receivedMessage->protocol, receivedMessage->type, receivedMessage->length);
-	//messageAction(receivedMessage, clientSocket);
-	close(clientSocket);
+	// recv(client_sd, (void *) receivedMessage, sizeof(receivedMessage), 0);
+	receivedMessage = receiveMessage(client_sd);
+	printf("Received from: %s 0x%02X %d\n", receivedMessage->protocol, receivedMessage->type, receivedMessage->length);
+	messageAction(receivedMessage, client_sd);
+	close(client_sd);
 	pthread_exit(NULL);
+}
+
+void messageAction(Message* receivedFromClient, int clientSocket){
+	int header_len = (int)sizeof(receivedFromClient->protocol) + (int)sizeof(receivedFromClient->type) + (int)sizeof(receivedFromClient->length);
+	if(strcmp(receivedFromClient->protocol, "myftp") != 0){
+		char *returnMessage = "protocol message not myftp. Error from messageAction";
+		printf("%s\n", returnMessage);
+		send(clientSocket, returnMessage, strlen(returnMessage), 0);
+	}
 }
 
 int main(int argc, char **argv) {
