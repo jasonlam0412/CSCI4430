@@ -84,8 +84,23 @@ int main(int argc, char **argv) {
 	////
 	char buff[100];
 	if(strcmp(argv[3], "list") == 0){
-		Message *listRequestMessage = list_request();
-		sendMessage(listRequestMessage,sd);
+		//list dir
+		sendMessage(list_request(),sd);
+		Message* reply = receiveMessage(sd);
+		if(strcmp(reply->protocol, "fubar") == 0 && reply->type == 0xA2){
+			char replyMessage[reply->length - 11];
+			int length = recv(sd, replyMessage, reply->length - 11, 0);
+			if(length < 0)
+				printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
+			else{
+				replyMessage[length] = '\0';
+				printf("%s", replyMessage);
+			}
+		} else {
+			//error in protocol and type
+			printf("Server reply error. Wrong packet received.");
+		}
+
 	}else if(strcmp(argv[3], "get") == 0){
 		assert(argc == 5);
 		Message *getRequestMessage = get_request(strlen(argv[4]));
