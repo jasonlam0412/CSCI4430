@@ -86,9 +86,9 @@ int main(int argc, char **argv) {
 		Message *listRequestMessage = list_request();
 		sendMessage(listRequestMessage,sd);
 		Message* reply = receiveMessage(sd);
-		if(strcmp(reply->protocol, "fubar") == 0 && reply->type == 0xA2){
+		if(strcmp(reply->protocol, "myftp") == 0 && reply->type == 0xA2){
 			char replyMessage[reply->length - 11];
-			int length = recv(sd, replyMessage, reply->length - 11, 0);
+			int length = recvn(sd, replyMessage, reply->length - 11);
 			if(length < 0)
 				printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
 			else{
@@ -101,8 +101,18 @@ int main(int argc, char **argv) {
 		}
 	}else if(strcmp(argv[3], "get") == 0){
 		assert(argc == 5);
-		Message *getRequestMessage = get_request(strlen(argv[4]));
-		sendMessage(getRequestMessage,sd);
+		//send request
+		sendMessage(get_request(strlen(argv[4])),sd);
+		//send file name
+		sendn(sd, argv[4], strlen(argv[4]));
+		Message *reply = receiveMessage(sd);
+		if(strcmp(reply->protocol, "myftp") == 0 && reply->type == 0xB2){
+			//save files
+		} else if (strcmp(reply->protocol, "myftp") == 0 && reply->type == 0xB3){
+			printf("File does not exist!\n");
+			exit(0);
+		}
+
 	}else if(strcmp(argv[3], "put") == 0){
 		assert(argc == 5);
 		FILE *fp = fopen(argv[4], "rb");
