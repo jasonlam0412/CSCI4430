@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <dirent.h>
+#include "myftp.h"
 
 #define PORT 12345
 int PORTno;

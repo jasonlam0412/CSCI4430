@@ -8,6 +8,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <dirent.h>
+#include "myftp.h"
 
 #define header_size = 4+6+1
 
