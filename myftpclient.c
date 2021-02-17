@@ -33,7 +33,20 @@ int main(int argc, char** argv)
 	}
 	*/
 	if(strcmp(argv[3], "list") == 0)
-	{}
+	{
+		sendOutFTPMessage(list_request(), sd); //send list request
+		Message* reply = receiveFTPMessage(sd);
+		if(strcmp(reply->protocol, "myftp") == 0 && reply->type == 0xA2){
+			char replyMessage[reply->length - 11];
+			int length = recv(sd, replyMessage, reply->length - 11, 0);
+			if(length < 0)
+				printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
+			else{
+				replyMessage[length] = '\0';
+				printf("%s", replyMessage);
+			}
+		}
+	}
 	else if(strcmp(argv[3], "get") == 0)
 	{}
 	else if(strcmp(argv[3], "put") == 0)
