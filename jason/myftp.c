@@ -10,6 +10,14 @@
 # include <arpa/inet.h>
 #include "myftp.h"
 
+Message* file_data(int fileSize){
+    Message *fileDataMessage = (Message *) malloc(sizeof(Message));
+    strcpy(fileDataMessage->protocol, "myftp");
+    fileDataMessage->type = 0xFF;
+    fileDataMessage->length = 11 + fileSize;
+    return fileDataMessage;
+}
+
 int sendn(int sd, void *buf, int buf_len){
 	int n_left = buf_len;
 	int n;
@@ -47,4 +55,25 @@ int recvn(int sd, void *buf, int buf_len){
 		n_left -= n;
 	}
 	return buf_len;
+}
+
+void sendMessage(Message *data, int sd){
+    // printf("BEFORE SEND: %d\n", data->length);
+    data->length = htonl(data->length);
+	int length = send(sd, (void *) data, sizeof(*data), 0);
+    // printf("AFTER SEND: %d\n", data->length);
+	free(data);
+	if(length < 0){
+		printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
+	}
+}
+
+Message* receiveMessage(int sd){
+    Message *receiveMessage = (Message *) malloc(sizeof(Message));
+	int length = recv(sd, (void *) receiveMessage, sizeof(*receiveMessage), 0);
+    receiveMessage->length = ntohl(receiveMessage->length);
+	if(length < 0){
+		printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
+	}
+    return receiveMessage;
 }

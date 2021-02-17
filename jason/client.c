@@ -1,97 +1,102 @@
-#include <arpa/inet.h>
-#include <errno.h>
-#include <netinet/in.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
+
+#include <signal.h>
+#include <pthread.h>
+#include <assert.h>
+#include <unistd.h>
+
+#include <errno.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include "myftp.h"
 
 #define IPADDR "127.0.0.1"
 #define PORT 12345
 
-int recvMsg(int sd, char *buff, int len) {
-  int recvLen = 0;
-  while (recvLen != len) {
-    int rLen = recv(sd, buff + recvLen, len - recvLen, 0);
-    if (rLen <= 0) {
-      fprintf(stderr, "error recving msg\n");
-      return 1;
-    }
-    recvLen += rLen;
-  }
-  return 0;
+Message* list_request();
+Message* get_request(int);
+Message* put_request(int);
+
+
+Message* list_request(){
+    Message *listRequestMessage = (Message *) malloc(sizeof(Message));
+    strcpy(listRequestMessage->protocol, "myftp");
+    listRequestMessage->type = 0xA1;
+    listRequestMessage->length = 11;
+    return listRequestMessage;
 }
 
-int sendMsg(int sd, char *buff, int len) {
-  int recvLen = 0;
-  while (recvLen != len) {
-    int rLen = send(sd, buff + recvLen, len - recvLen, 0);
-    if (rLen <= 0) {
-      fprintf(stderr, "error sending msg\n");
-      return 1;
-    }
-    recvLen += rLen;
-  }
-  return 0;
+Message* get_request(int payloadLength){
+    Message *getRequestMessage = (Message *) malloc(sizeof(Message));
+    strcpy(getRequestMessage->protocol, "myftp");
+    getRequestMessage->type = 0xB1;
+    getRequestMessage->length = 11 + payloadLength;
+    return getRequestMessage;
 }
+
+Message* put_request(int payloadLength){
+    Message *putRequestMessage = (Message *) malloc(sizeof(Message));
+    strcpy(putRequestMessage->protocol, "myftp");
+    putRequestMessage->type = 0xC1;
+    putRequestMessage->length = 11 + payloadLength;
+    return putRequestMessage;
+}
+
+
+
+
 
 /*
  * Worker thread performing receiving and outputing messages
  */
-void *pthread_prog(void *sDescriptor) {
-  int sd = *(int *)sDescriptor;
-  int *len = (int *)calloc(sizeof(int), 1);
-  while (1) {
-    if (recvMsg(sd, (char *)len, sizeof(int)) == 1) {
-      fprintf(stderr, "error receiving, exit!\n");
-      exit(0);
-    }
-    char *buff = (char *)calloc(sizeof(char), *len + 1);
-    if (recvMsg(sd, buff, *len) == 1) {
-      fprintf(stderr, "error receiving, exit!\n");
-      exit(0);
-    }
-    printf("recv'd msg: %s\n", buff);
-    free(buff);
-  }
-  free(len);
-}
+
 
 int main(int argc, char **argv) {
   /*if(connect(sd,(struct sockaddr *)&server_addr,sizeof(server_addr))<0){
     printf("connection error: %s (Errno:%d)\n",strerror(errno),errno);
     exit(0);
     }*/
-  int sd = socket(AF_INET, SOCK_STREAM, 0);
-  struct sockaddr_in server_addr;
-  pthread_t worker;
-  memset(&server_addr, 0, sizeof(server_addr));
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_addr.s_addr = inet_addr(IPADDR);
-  server_addr.sin_port = htons(PORT);
-  if (connect(sd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-    printf("connection error: %s (Errno:%d)\n", strerror(errno), errno);
-    exit(0);
-  }
-  pthread_create(&worker, NULL, pthread_prog, &sd);
-  char buff[100];
-  while (1) {
-    memset(buff, 0, 100);
-    scanf("%s", buff);
-    int *msgLen = (int *)calloc(sizeof(int), 1);
-    *msgLen = strlen(buff);
-    // printf("%s\n",buff);
-    if (sendMsg(sd, (char *)msgLen, sizeof(int)) == 1) {
-      fprintf(stderr, "send error, exit\n");
-      exit(0);
+	char IPaddress[15];
+	assert(argc >= 3 && argc <= 5);
+    int portNumber = atoi(argv[2]);
+    strcpy(IPaddress, argv[1]);
+	int sd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sd == -1){
+        printf("Socket descriptor creation error.\n");
+        exit(0);
     }
-    if (sendMsg(sd, buff, *msgLen) == 1) {
-      fprintf(stderr, "send error, exit\n");
-      exit(0);
-    }
-  }
-  return 0;
+	struct sockaddr_in server_addr;
+	pthread_t worker;
+	memset(&server_addr, 0, sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = inet_addr(IPaddress);
+	server_addr.sin_port = htons(portNumber);
+	if (connect(sd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+	printf("connection error: %s (Errno:%d)\n", strerror(errno), errno);
+	exit(0);
+	}
+	////
+	char buff[100];
+	if(strcmp(argv[3], "list") == 0){
+		Message *listRequestMessage = list_request();
+		sendMessage(listRequestMessage,sd);
+	}else if(strcmp(argv[3], "get") == 0){
+		assert(argc == 5);
+		Message *getRequestMessage = get_request(strlen(argv[4]));
+		
+
+		// Send get request
+		sendMessage(getRequestMessage,sd);
+	}else if(strcmp(argv[3], "put") == 0){
+	}
+	
+	close(sd);
+	
+	return 0;
 }

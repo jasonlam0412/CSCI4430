@@ -4,4 +4,10 @@ typedef struct message_s {
     unsigned int length;
 	unsigned char payload[500];
 	
-} __attribute__ ((packed)) P_message;
+} __attribute__ ((packed)) Message;
+
+Message* file_data(int);
+int sendn(int, void *, int);
+int recvn(int, void *, int);
+void sendMessage(Message *, int);
+Message* receiveMessage(int);
