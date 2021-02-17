@@ -116,9 +116,9 @@ int main(int argc, char **argv) {
 			int replyFilesize = replyFile->length - 11;
 			FILE *fp = fopen(argv[4], "w+b");
 			while(replyFilesize > 0){
-				Message* fileSizeData = receiveFTPMessage(socketDescriptor);
-				char words[wordSize];
-				if(fileSizeData->length - 11 > wordSize)
+				Message* fileSizeData = receiveMessage(sd);
+				char words[1024];
+				if(fileSizeData->length - 11 > 1024)
 					fileSizeData->length = ntohl(fileSizeData->length);
 				printf("%d\n", fileSizeData->length - 11);
 				int length = recv(socketDescriptor, words, fileSizeData->length - 11, 0);
