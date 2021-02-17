@@ -91,7 +91,6 @@ int main(int argc, char **argv) {
 			if(length < 0)
 				printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
 			else{
-				replyMessage 
 				replyMessage[length] = '\0';
 				printf("%s", replyMessage);
 			}
