@@ -15,8 +15,9 @@
 #include <arpa/inet.h>
 
 #include "myftp.h"
-#define HEADERLEN 11
 
+#define IPADDR "127.0.0.1"
+#define PORT 12345
 
 Message* list_request();
 Message* get_request(int);
@@ -24,28 +25,27 @@ Message* put_request(int);
 
 
 Message* list_request(){
-    Message *listRequestMessage = (Message *) malloc(sizeof(Message));
-    strcpy(listRequestMessage->protocol, "myftp");
-    listRequestMessage->type = 0xA1;
-    listRequestMessage->length = HEADERLEN;
-	//listRequestMessage->length = htonl(listRequestMessage->length);
-    return listRequestMessage;
+    Message *list_request_msg = (Message *) malloc(sizeof(Message));
+    strcpy(list_request_msg->protocol, "fubar");
+    list_request_msg->type = 0xA1;
+    list_request_msg->length = 11;
+    return list_request_msg;
 }
 
 Message* get_request(int payloadLength){
-    Message *getRequestMessage = (Message *) malloc(sizeof(Message));
-    strcpy(getRequestMessage->protocol, "myftp");
-    getRequestMessage->type = 0xB1;
-    getRequestMessage->length = HEADERLEN + payloadLength;
-    return getRequestMessage;
+    Message *get_request_msg = (Message *) malloc(sizeof(Message));
+    strcpy(get_request_msg->protocol, "fubar");
+    get_request_msg->type = 0xB1;
+    get_request_msg->length = 11 + payloadLength;
+    return get_request_msg;
 }
 
 Message* put_request(int payloadLength){
-    Message *putRequestMessage = (Message *) malloc(sizeof(Message));
-    strcpy(putRequestMessage->protocol, "myftp");
-    putRequestMessage->type = 0xC1;
-    putRequestMessage->length = HEADERLEN + payloadLength;
-    return putRequestMessage;
+    Message *put_request_msg = (Message *) malloc(sizeof(Message));
+    strcpy(put_request_msg->protocol, "fubar");
+    put_request_msg->type = 0xC1;
+    put_request_msg->length = 11 + payloadLength;
+    return put_request_msg;
 }
 
 
@@ -62,10 +62,10 @@ int main(int argc, char **argv) {
     printf("connection error: %s (Errno:%d)\n",strerror(errno),errno);
     exit(0);
     }*/
-	char IPaddress[15];
+	char ip_addr[15];
 	assert(argc >= 3 && argc <= 5);
-    int portNumber = atoi(argv[2]);
-    strcpy(IPaddress, argv[1]);
+    int port_num = atoi(argv[2]);
+    strcpy(ip_addr, argv[1]);
 	int sd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sd == -1){
         printf("Socket descriptor creation error.\n");
@@ -75,77 +75,65 @@ int main(int argc, char **argv) {
 	pthread_t worker;
 	memset(&server_addr, 0, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = inet_addr(IPaddress);
-	server_addr.sin_port = htons(portNumber);
+	server_addr.sin_addr.s_addr = inet_addr(ip_addr);
+	server_addr.sin_port = htons(port_num);
 	if (connect(sd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 	printf("connection error: %s (Errno:%d)\n", strerror(errno), errno);
 	exit(0);
 	}
 	////
-	char buff[100];
-	if(strcmp(argv[3], "list") == 0){
-		Message *listRequestMessage = list_request();
-		sendMessage(listRequestMessage,sd);
+	
+	if(strcmp(argv[3], "list") == 0)
+	{
+		Message *list_request_msg = list_request();
+		sendMessage(list_request_msg,sd);
+
 		Message* reply = receiveMessage(sd);
-		printf("get reply");
-		if(strcmp(reply->protocol, "myftp") == 0 && reply->type == 0xA2){
-			char replyMessage[reply->length - 11];
-			int length = recv(sd, replyMessage, reply->length - 11, 0);
+		if(strcmp(reply->protocol, "fubar") == 0 && reply->type == 162){
+			char Received[reply->length - 11];
+			int length = recv(sd, Received, reply->length - 11, 0);
 			if(length < 0)
 				printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
 			else{
-				replyMessage[length] = '\0';
-				printf("%s", replyMessage);
+				Received[length] = '\0';
+				printf("%s", Received);
 			}
-		} else {
-			//error in protocol and type
-			printf("Server reply error. Wrong packet received.");
 		}
-	}else if(strcmp(argv[3], "get") == 0){
-		assert(argc == 5);
-		Message *getRequestMessage = get_request(strlen(argv[4]));
+	}
+	else if(strcmp(argv[3], "get") == 0){
 		
+		assert(argc == 5);
+		Message *get_request_msg = get_request(strlen(argv[4]));
+		
+		sendMessage(get_request_msg,sd);
 
-		// Send get request
-		sendMessage(getRequestMessage,sd);
-		// send(sd, (void *) getRequestMessage, sizeof(*getRequestMessage), 0);
-
-		// free(getRequestMessage);
-		// Send filename
 		send(sd, argv[4], strlen(argv[4]), 0);
-		Message* replyMessage = receiveMessage(sd);
-		// recv(sd, (void *) &replyMessage, sizeof(replyMessage), 0);
+		Message* reply_msg = receiveMessage(sd);
 
-		// File does not exist replied from server
-		if(strcmp(replyMessage->protocol, "myftp") == 0 && replyMessage->type == (int)0xB3){
+		if(strcmp(reply_msg->protocol, "fubar") == 0 && reply_msg->type == (int)0xB3){
 			printf("File does not exist!\n");
 			exit(0);
 		}
-		// File exists replied from server and going to receive message structure and file data
-		else if(strcmp(replyMessage->protocol, "myftp") == 0 && replyMessage->type == (int)0xB2){
-			// Receive file data with size
-			// Message fileData;
-			// Message* replyMessage = receiveMessage(sd);
 
-			// recv(sd, (void *) &fileData, sizeof(fileData), 0);
+		else if(strcmp(reply_msg->protocol, "fubar") == 0 && reply_msg->type == (int)0xB2){
+			
 			Message* fileData = receiveMessage(sd);
 
-			// printf("FILE PROTOCOL: %s", fileData->protocol);
-			// printf("FILE TYPE: %d", fileData->type);
-			if(!(strcmp(fileData->protocol, "myftp") == 0 && fileData->type == (int)0xFF)){
+
+			if(!(strcmp(fileData->protocol, "fubar") == 0 && fileData->type == (int)0xFF)){
 				printf("File data structure error!\n");
 				exit(0);
 			}
 			int fileDataLength = fileData->length - 11;
 			printf("Waiting file... : %d\n", fileDataLength);
 
-			// wordSize depends on connection, it can be changed
-			int wordSize = 1024;
+			int MaxSize = 1024;
 			FILE *fp = fopen(argv[4], "w+b");
 			while(fileDataLength > 0){
+				char words[MaxSize];
 				Message* fileSizeData = receiveMessage(sd);
-				char words[wordSize];
-				if(fileSizeData->length - 11 > wordSize)
+				
+				if(fileSizeData->length - 11 > MaxSize)
 					fileSizeData->length = ntohl(fileSizeData->length);
 				printf("%d\n", fileSizeData->length - 11);
 				int length = recv(sd, words, fileSizeData->length - 11, 0);
@@ -156,20 +144,50 @@ int main(int argc, char **argv) {
 			fclose(fp);
 		}
 		
-	}else if(strcmp(argv[3], "put") == 0){
-		assert(argc == 5);
+
+		// Send get request
+		sendMessage(get_request_msg,sd);
+	}
+	else if(strcmp(argv[3], "put") == 0)
+	{
+		if(access(argv[4], F_OK) != 0){
+            printf("file doesn't exit\n");
+            exit(0);
+        }
 		FILE *fp = fopen(argv[4], "rb");
 		if (fp == 0){
 			printf("File cannot open\n");
 			return 0;
-		}else{
-			printf("File opened\n");
 		}
-		fseek(fp, 0, SEEK_END); 	
-		int fileSize = ftell(fp); 	
-		fseek(fp, 0, SEEK_SET); 	
-		Message *putRequestMessage = put_request(strlen(argv[4]));
-		sendMessage(putRequestMessage, sd);
+		fseek(fp, 0, SEEK_END); 	// seek to end of file
+		int fileSize = ftell(fp); 	// get current file pointer
+		fseek(fp, 0, SEEK_SET); 	// seek back to beginning of file
+		
+		Message* put_request_msg = put_request(strlen(argv[4]));
+		sendMessage(put_request_msg, sd);
+		send(sd, argv[4], strlen(argv[4]), 0);
+		
+		Message reply;
+		recv(sd, (void *) &reply, sizeof(reply), 0);
+		if(!(strcmp(reply.protocol, "fubar") == 0 && reply.type == (int)0xC2)){
+			printf("Connection error!\n");
+			exit(0);
+		}
+		
+		Message *fileDataMessage = file_data(fileSize);
+		sendMessage(fileDataMessage, sd);
+		int wordSize = 1024;
+		while(!feof(fp)){
+			char words[wordSize];
+			size_t bytes_read = fread(words, sizeof(char), wordSize - 1, fp);
+			Message *fileDataMessage = file_data(bytes_read * sizeof(char));
+			sendMessage(fileDataMessage,sd);
+			send(sd, words, bytes_read * sizeof(char), 0);
+		}
+		printf("File sending is finished\n");
+		fclose(fp);
+		
+		
 	}
 	
 	close(sd);

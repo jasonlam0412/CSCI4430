@@ -3,6 +3,7 @@ typedef struct message_s {
     unsigned char type;
     unsigned int length;
 	
+	
 } __attribute__ ((packed)) Message;
 
 Message* file_data(int);

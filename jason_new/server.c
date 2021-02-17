@@ -17,23 +17,19 @@
 #include <dirent.h>
 
 #include "myftp.h"
-#define HEADERLEN 11
 
+#define PORT 12345
 Message* list_reply(int);
 Message* get_reply(bool);
 Message* put_reply();
 void *connectionFunction(void *);
-void sendListReply(int);
-char* listDirectory();
-void messageAction(Message*, int);
-void sendGetReply(Message*, int);
+
 
 Message* list_reply(int payloadLength){
     Message *listReplyMessage = (Message *) malloc(sizeof(Message));
-    strcpy(listReplyMessage->protocol, "myftp");
+    strcpy(listReplyMessage->protocol, "fubar");
     listReplyMessage->type = 0xA2;
-    listReplyMessage->length = HEADERLEN + payloadLength;
-	//listReplyMessage->length = htonl(listReplyMessage->length);
+    listReplyMessage->length = 11 + payloadLength;
     return listReplyMessage;
 }
 
@@ -43,51 +39,47 @@ Message* get_reply(bool existance){
         getReplyMessage->type = 0xB2;
     else
         getReplyMessage->type = 0xB3;
-    strcpy(getReplyMessage->protocol, "myftp");
-    getReplyMessage->length = HEADERLEN;
+    strcpy(getReplyMessage->protocol, "fubar");
+    getReplyMessage->length = 11;
     return getReplyMessage;
 }
 
 Message* put_reply(){
     Message *putReplyMessage = (Message *) malloc(sizeof(Message));
-    strcpy(putReplyMessage->protocol, "myftp");
+    strcpy(putReplyMessage->protocol, "fubar");
     putReplyMessage->type = 0xC2;
-    putReplyMessage->length = HEADERLEN;
+    putReplyMessage->length = 11;
     return putReplyMessage;
 }
 
 
-
-/*
- * Worker thread performing receiving and outputing messages
- */
-
-
-
 void sendGetReply(Message* receivedFromClient, int clientSocket){
-	int filenameLength = receivedFromClient->length - 11;
-	char filename[filenameLength];
-	int receivedLength = recv(clientSocket, filename, filenameLength, 0);
+	int fileNameSize = receivedFromClient->length - 11;
+	char filename[fileNameSize];
+	int receivedLength = recv(clientSocket, filename, fileNameSize, 0);
 	if(receivedLength < 0)
 		printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
 	else
 		filename[receivedLength] = '\0';
-	// printf("File Name: %s\n", filename);
+	//testing
+	printf("File Name: %s\n", filename);
 
 	// File Path Parsing
-	char filePath[receivedLength + 2 + 4];
+	char filePath[receivedLength + 6];
 	// Only for Linux/Unix Environment
 	strcpy(filePath, "data/");
 	strcat(filePath, filename);
+	
+	//testing
 	printf("File Path: %s\n", filePath);
-	//
-
-	FILE *fp = fopen(filePath, "rb");
+	//file exist
+	FILE *fp = fopen(filePath, "rb");	//read binary file
 	if (ENOENT == errno){
 		Message *getErrorReplyMessage = get_reply(false);
 		sendMessage(getErrorReplyMessage, clientSocket);
 		return;
 	}
+	
 	fseek(fp, 0, SEEK_END); 	// seek to end of file
 	int fileSize = ftell(fp); 	// get current file pointer
 	fseek(fp, 0, SEEK_SET); 	// seek back to beginning of file
@@ -110,31 +102,31 @@ void sendGetReply(Message* receivedFromClient, int clientSocket){
 	fclose(fp);
 }
 
-void *connectionFunction(void *sd){
-	char buffer[100];
-	int length;
-	int client_sd = *((int *) sd);
-	// printf("RECEIVING SOMETHING\n");
-	Message* receivedMessage;
-	// Client is now connected to server
-	// recv(client_sd, (void *) receivedMessage, sizeof(receivedMessage), 0);
-	receivedMessage = receiveMessage(client_sd);
-	printf("Received from: %s 0x%02X %d\n", receivedMessage->protocol, receivedMessage->type, receivedMessage->length);
-	messageAction(receivedMessage, client_sd);
-	close(client_sd);
-	pthread_exit(NULL);
-}
 
-void messageAction(Message* recv_msg, int client_sd){
-	int header_len = (int)sizeof(recv_msg->protocol) + (int)sizeof(recv_msg->type) + (int)sizeof(recv_msg->length);
-	if(strcmp(recv_msg->protocol, "myftp") != 0){
-		char *returnMessage = "protocol message not myftp. Error from messageAction";
-		printf("%s\n", returnMessage);
-		send(client_sd, returnMessage, strlen(returnMessage), 0);
-		printf("send done\n");
-	}else{
-		if((int)recv_msg->type == (int)0xA1 && recv_msg->length == 11){
-			printf("Get LIST_REQUEST\n");
+
+
+void messageAction(Message* receivedFromClient, int clientSocket){
+	int messageLength = (int)sizeof(receivedFromClient->protocol) + (int)sizeof(receivedFromClient->type) + (int)sizeof(receivedFromClient->length);
+	printf("%i\n", messageLength);
+	// check protocol error
+	if(strcmp(receivedFromClient->protocol, "fubar") != 0){
+		char *errorMessage = "Wrong protocol to handle";
+		printf("%s\n", errorMessage);
+		send(clientSocket, errorMessage, strlen(errorMessage), 0);
+	}
+	
+	// check messageLength error
+	else if(receivedFromClient->length != messageLength && (int)receivedFromClient->type == (int)0xA1){
+		// Needs to change condition here since put_request and get_request have payload
+		char *errorMessage = "Wrong message size";
+		printf("%s\n", errorMessage);
+		send(clientSocket, errorMessage, strlen(errorMessage), 0);
+	}
+	
+	else{
+		printf("Processing...\n");
+		// LIST_REQUEST
+		if((int)receivedFromClient->type == (int)0xA1){
 			
 			
 			DIR *dir;
@@ -158,32 +150,122 @@ void messageAction(Message* recv_msg, int client_sd){
 			fileList[fileListSize - 1] = '\0';		
 			
 			Message *listReplyMessage = list_reply(strlen(fileList));
-			sendMessage(listReplyMessage,client_sd);
+			sendMessage(listReplyMessage,clientSocket);
 
-			int length = send(client_sd, fileList, htonl(strlen(fileList)), 0);
+			int length = send(clientSocket, fileList, strlen(fileList), 0);
 			free(fileList);
 			if(length < 0){
 				printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
 			}
 			
-			
-			printf("LIST_REPLY DONE\n");
 		}
 		// GET_REQUEST
-		else if((int)recv_msg->type == (int)0xB1){
-			printf("Get GET_REQUEST\n");
-			sendGetReply(recv_msg, client_sd);
-			printf("GET_REPLY DONE\n");
+		else if((int)receivedFromClient->type == (int)0xB1){
+			int filenameLength = receivedFromClient->length - 11;
+			char filename[filenameLength];
+			int receivedLength = recv(clientSocket, filename, filenameLength, 0);
+			if(receivedLength < 0)
+				printf("Connection Error: %s (Errno:%d)\n", strerror(errno), errno);
+			else
+				filename[receivedLength] = '\0';
+			char filePath[receivedLength + 2 + 4];
+			strcpy(filePath, "data/");
+			strcat(filePath, filename);
+			printf("File Path: %s\n", filePath);
+			FILE *fp = fopen(filePath, "rb");
+			if (fp == 0){
+				Message *getErrorReplyMessage = get_reply(false);
+				sendMessage(getErrorReplyMessage, clientSocket);
+				return;
+			}
+			fseek(fp, 0, SEEK_END); 	// seek to end of file
+			int fileSize = ftell(fp); 	// get current file pointer
+			fseek(fp, 0, SEEK_SET); 	// seek back to beginning of file
+
+			Message *getReplyMessage = get_reply(true);
+			sendMessage(getReplyMessage, clientSocket);
+
+			Message *fileDataMessage = file_data(fileSize);
+			sendMessage(fileDataMessage, clientSocket);
+
+			int wordSize = 1024;
+			while(!feof(fp)){
+				char words[wordSize];
+				size_t bytes_read = fread(words, sizeof(char), wordSize - 1, fp);
+				Message *fileDataMessage = file_data(bytes_read * sizeof(char));
+				sendMessage(fileDataMessage, clientSocket);
+				send(clientSocket, words, bytes_read * sizeof(char), 0);
+			}
+			printf("File sending is finished\n");
+			fclose(fp);
+			
+			
+			
 		}
 		// PUT_REQUEST
-		else if((int)recv_msg->type == (int)0xC1){
-			printf("Get PUT_REQUEST\n");
-			//uploadFileFromClient(recv_msg, client_sd);
-			printf("PUT_REPLY DONE\n");
-		}else{
-			printf("Type recv error. Line 96\n");
+		else if((int)receivedFromClient->type == (int)0xC1){
+	
+			Message *putReplyMessage = put_reply();
+			sendMessage(putReplyMessage, clientSocket);
+			char filePath[receivedFromClient->length - 11];
+			int length = recv(clientSocket, filePath, receivedFromClient->length - 11, 0);
+			filePath[length] = '\0';
+			char targetFile[100] = {'\0'};
+			printf("File Path: %s\n", filePath);
+
+			strcpy(targetFile, "data/");
+			strcat(targetFile, filePath);
+			printf("File Path: %s\n", targetFile);
+			FILE *fp = fopen(targetFile, "w+b");
+
+			// Receive file data with size
+			// Message fileData;
+			Message* fileData = receiveMessage(clientSocket);
+
+			if(!(strcmp(fileData->protocol, "fubar") == 0 && fileData->type == (int)0xFF)){
+				printf("File data structure error!\n");
+				exit(0);
+			}
+			int fileDataLength = fileData->length - 11;
+			printf("Waiting file... : %d\n", fileDataLength);
+
+			// wordSize depends on connection, it can be changed
+			int wordSize = 1024;
+			while(fileDataLength > 0){
+				char words[wordSize];
+				Message* fileSizeData = receiveMessage(clientSocket);
+				if(fileSizeData->length - 11 > wordSize)
+					fileSizeData->length = ntohl(fileSizeData->length);
+				printf("%d\n", fileSizeData->length - 11);
+				int length = recv(clientSocket, words, fileSizeData->length - 11, 0);
+				fileDataLength -= fileSizeData->length - 11;
+				fwrite(words, sizeof(char), fileSizeData->length - 11, fp);
+			}
+			printf("File has been received and saved!!!\n");
+			fclose(fp);
+			
 		}
 	}
+}
+
+/*
+ * Worker thread performing receiving and outputing messages
+ */
+
+
+void *connectionFunction(void *client_sd){
+	char buffer[100];
+	int length;
+	int clientSocket = *((int *) client_sd);
+	// printf("RECEIVING SOMETHING\n");
+	Message* receivedMessage;
+	// Client is now connected to server
+	// recv(clientSocket, (void *) receivedMessage, sizeof(receivedMessage), 0);
+	receivedMessage = receiveMessage(clientSocket);
+	printf("Received from sender: %s 0x%02X %d\n", receivedMessage->protocol, receivedMessage->type, receivedMessage->length);
+	messageAction(receivedMessage, clientSocket);
+	close(clientSocket);
+	pthread_exit(NULL);
 }
 
 int main(int argc, char **argv) {
@@ -206,11 +288,6 @@ int main(int argc, char **argv) {
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	server_addr.sin_port = htons(port_num);
-	long val = 1;
-	if(setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(long)) == -1){
-		perror("setsockopt");
-		exit(1);
-	}
 	if (bind(sd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 	printf("bind error: %s (Errno:%d)\n", strerror(errno), errno);
 	exit(0);
