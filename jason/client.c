@@ -121,11 +121,11 @@ int main(int argc, char **argv) {
 				if(fileSizeData->length - 11 > 1024)
 					fileSizeData->length = ntohl(fileSizeData->length);
 				printf("%d\n", fileSizeData->length - 11);
-				int length = recv(socketDescriptor, words, fileSizeData->length - 11, 0);
-				fileDataLength -= fileSizeData->length - 11;
+				int length = recvn(sd, words, fileSizeData->length - 11);
+				replyFilesize -= fileSizeData->length - 11;
 				fwrite(words, sizeof(char), fileSizeData->length - 11, fp);
 			}
-			printf("File has been received and saved!!!\n");
+			printf("Received file\n");
 			fclose(fp);
 
 
