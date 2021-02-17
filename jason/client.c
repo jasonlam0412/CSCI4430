@@ -108,6 +108,27 @@ int main(int argc, char **argv) {
 		Message *reply = receiveMessage(sd);
 		if(strcmp(reply->protocol, "myftp") == 0 && reply->type == 0xB2){
 			//save files
+			Message *replyFile = receiveMessage(sd);
+			if (strcmp(replyFile->protocol, "myftp") != 0 || replyFile->type != 0xFF){
+				printf("Server reply error.");
+				exit(0);
+			}
+			int replyFilesize = replyFile->length - 11;
+			FILE *fp = fopen(argv[4], "w+b");
+			while(replyFilesize > 0){
+				Message* fileSizeData = receiveFTPMessage(socketDescriptor);
+				char words[wordSize];
+				if(fileSizeData->length - 11 > wordSize)
+					fileSizeData->length = ntohl(fileSizeData->length);
+				printf("%d\n", fileSizeData->length - 11);
+				int length = recv(socketDescriptor, words, fileSizeData->length - 11, 0);
+				fileDataLength -= fileSizeData->length - 11;
+				fwrite(words, sizeof(char), fileSizeData->length - 11, fp);
+			}
+			printf("File has been received and saved!!!\n");
+			fclose(fp);
+
+
 		} else if (strcmp(reply->protocol, "myftp") == 0 && reply->type == 0xB3){
 			printf("File does not exist!\n");
 			exit(0);
