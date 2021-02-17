@@ -24,3 +24,5 @@ Message* file_data(int);
 void sendOutFTPMessage(Message *, int);
 
 Message* receiveFTPMessage(int);
+
+#endif
