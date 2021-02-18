@@ -159,9 +159,9 @@ int main(int argc, char **argv) {
 			printf("File cannot open\n");
 			return 0;
 		}
-		fseek(fp, 0, SEEK_END); 	// seek to end of file
-		int fileSize = ftell(fp); 	// get current file pointer
-		fseek(fp, 0, SEEK_SET); 	// seek back to beginning of file
+		fseek(fp, 0, SEEK_END);
+		int fileSize = ftell(fp); 
+		fseek(fp, 0, SEEK_SET); 	
 		
 		Message* put_request_msg = put_request(strlen(argv[4]));
 		sendMessage(put_request_msg, sd);

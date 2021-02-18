@@ -180,7 +180,7 @@ void messageAction(Message* receivedFromClient, int clientSocket){
 			}
 			fseek(fp, 0, SEEK_END); 	// seek to end of file
 			int fileSize = ftell(fp); 	// get current file pointer
-			fseek(fp, 0, SEEK_SET); 	// seek back to beginning of file
+			fseek(fp, 0, SEEK_SET); 	
 
 			Message *getReplyMessage = get_reply(true);
 			sendMessage(getReplyMessage, clientSocket);
@@ -205,6 +205,7 @@ void messageAction(Message* receivedFromClient, int clientSocket){
 		// PUT_REQUEST
 		else if((int)receivedFromClient->type == (int)0xC1){
 	
+			//send message for connection put ensure
 			Message *putReplyMessage = put_reply();
 			sendMessage(putReplyMessage, clientSocket);
 			char filePath[receivedFromClient->length - 11];
@@ -218,12 +219,10 @@ void messageAction(Message* receivedFromClient, int clientSocket){
 			printf("File Path: %s\n", targetFile);
 			FILE *fp = fopen(targetFile, "w+b");
 
-			// Receive file data with size
-			// Message fileData;
 			Message* fileData = receiveMessage(clientSocket);
 
 			if(!(strcmp(fileData->protocol, "fubar") == 0 && fileData->type == (int)0xFF)){
-				printf("File data structure error!\n");
+				printf("File message error!\n");
 				exit(0);
 			}
 			int fileDataLength = fileData->length - 11;
@@ -248,19 +247,11 @@ void messageAction(Message* receivedFromClient, int clientSocket){
 	}
 }
 
-/*
- * Worker thread performing receiving and outputing messages
- */
-
-
 void *connectionFunction(void *client_sd){
 	char buffer[100];
 	int length;
 	int clientSocket = *((int *) client_sd);
-	// printf("RECEIVING SOMETHING\n");
 	Message* receivedMessage;
-	// Client is now connected to server
-	// recv(clientSocket, (void *) receivedMessage, sizeof(receivedMessage), 0);
 	receivedMessage = receiveMessage(clientSocket);
 	printf("Received from sender: %s 0x%02X %d\n", receivedMessage->protocol, receivedMessage->type, receivedMessage->length);
 	messageAction(receivedMessage, clientSocket);
